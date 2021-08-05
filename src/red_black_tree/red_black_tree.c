@@ -1,4 +1,5 @@
 #include <red_black_tree.h>
+#include <inttypes.h>
 #include <signal.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -48,7 +49,7 @@ void _print_node(rb_node_t* n,uint16_t i){
 	for (uint16_t j=0;j<i;j++){
 		putchar(' ');
 	}
-	printf("%c: %u\n",(RB_NODE_GET_COLOR(n)==COLOR_RED?'R':'B'),n->v);
+	printf("%c: "PRIu64"\n",(RB_NODE_GET_COLOR(n)==COLOR_RED?'R':'B'),n->v);
 	if (n->c[1]){
 		_print_node(n->c[1],i+2);
 	}

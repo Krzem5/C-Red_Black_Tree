@@ -15,8 +15,11 @@ int main(int argc,const char** argv){
 	rb_insert_node(&t,22);
 	rb_insert_node(&t,25);
 	rb_insert_node(&t,27);
-	rb_insert_node(&t,127);
-	rb_insert_node(&t,126);
+	rb_node_t* rm0=rb_insert_node(&t,127);
+	rb_node_t* rm1=rb_insert_node(&t,126);
+	rb_print_tree(&t);
+	rb_delete_node(&t,rm0);
+	rb_delete_node(&t,rm1);
 	rb_print_tree(&t);
 	rb_free_tree(&t);
 	return 0;
