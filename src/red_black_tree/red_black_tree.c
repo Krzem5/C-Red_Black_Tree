@@ -137,7 +137,46 @@ rb_node_t* rb_insert_node(rb_tree_t* t,uint64_t v){
 
 
 
-void delete_node(rb_tree_t* t,rb_node_t* n);
+void delete_node(rb_tree_t* t,rb_node_t* n){
+	rb_node_t* a;
+	if (n->c[0]&&n->c[1]){
+		a=successor(n->c[0]);
+	}
+	else if (n->c[0]){
+		a=n->c[0]
+	}
+	else if (n->c[1]){
+		a=n->c[1];
+	}
+	else{
+		if (n==t->r){
+			t->r=NULL;
+		}
+		else{
+			rb_node_t* p=RB_NODE_GET_PARENT(n);
+			uint8_t d=(p->c[0]==n?0:1);
+			if (RB_NODE_GET_COLOR(n)==COLOR_BLACK){
+				fixDoubleBlack(n);
+			}
+			else{
+				if (p->c[1-d]){
+					RB_NODE_SET_COLOR(p->c[1-d],COLOR_RED);
+				}
+			}
+			p->c[d]=NULL;
+		}
+		free(n);
+		return;
+	}
+	if (!n->c[0]||!n->c[1]){
+		if (n==t->r){
+			n->v=a->v;
+			n->c[0]=NULL;
+			n->c[1]=NULL;
+			free(a);
+		}
+	}
+}
 
 
 
