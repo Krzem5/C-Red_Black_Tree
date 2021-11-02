@@ -20,265 +20,425 @@
 
 
 
-void _rotate(rb_tree_t* t,rb_node_t* n,uint8_t d){
-	rb_node_t* a=n->c[1-d];
-	n->c[1-d]=a->c[d];
-	if (a->c[d]){
-		RB_NODE_SET_PARENT(a->c[d],n);
-	}
-	rb_node_t* p=RB_NODE_GET_PARENT(n);
-	RB_NODE_SET_PARENT(a,p);
-	if (!p){
-		t->r=a;
-	}
-	else if (n==p->c[0]){
-		p->c[0]=a;
-	}
-	else{
-		p->c[1]=a;
-	}
-	a->c[d]=n;
-	RB_NODE_SET_PARENT(n,a);
-}
-
-
-
-void _print_node(rb_node_t* n,uint16_t i){
-	if (n->c[0]){
-		_print_node(n->c[0],i+2);
+static void _print_node(rb_node_t* n,rb_node_t* e,uint16_t i){
+	if (RB_NODE_GET_LEFT(n)!=e){
+		_print_node(RB_NODE_GET_LEFT(n),e,i+2);
 	}
 	for (uint16_t j=0;j<i;j++){
 		putchar(' ');
 	}
 	printf("%c: %"PRIu64"\n",(RB_NODE_GET_COLOR(n)==COLOR_RED?'R':'B'),n->v);
-	if (n->c[1]){
-		_print_node(n->c[1],i+2);
+	if (n->r!=e){
+		_print_node(n->r,e,i+2);
 	}
 }
 
 
 
-void _free_node(rb_node_t* n){
-	if (n->c[0]){
-		free(n->c[0]);
+static void _free_node(rb_node_t* n,rb_node_t* e){
+	if (RB_NODE_GET_LEFT(n)!=e){
+		_free_node(RB_NODE_GET_LEFT(n),e);
 	}
-	if (n->c[1]){
-		free(n->c[1]);
+	if (n->r!=e){
+		_free_node(n->r,e);
 	}
-	free(n);
+	if (n!=e){
+		free(n);
+	}
 }
 
 
 
 void rb_init_tree(rb_tree_t* t){
-	t->r=NULL;
+	ASSERT(!(((uint64_t)(&(t->_n)))&1));
+	t->_n.p=0;
+	t->_n.l=(uint64_t)(&(t->_n));
+	t->_n.r=&(t->_n);
+	t->_n.v=0;
+	t->r=&(t->_n);
 }
 
 
 
 rb_node_t* rb_insert_node(rb_tree_t* t,uint64_t v){
-	if (!t->r){
-		t->r=malloc(sizeof(rb_node_t));
-		ASSERT((((uint64_t)t->r)&0xfffffffffffffffe)==((uint64_t)t->r));
-		t->r->p=COLOR_BLACK;
-		t->r->c[0]=NULL;
-		t->r->c[1]=NULL;
-		t->r->v=v;
-		return t->r;
+	rb_node_t* nil=&(t->_n);
+	rb_node_t* x=t->r;
+	rb_node_t* y=NULL;
+	while (x!=nil){
+		y=x;
+		if (x->v>v){
+			x=RB_NODE_GET_LEFT(x);
+		}
+		else if (x->v<v){
+			x=x->r;
+		}
+		else{
+			return x;
+		}
 	}
-	rb_node_t* n=t->r;
-	rb_node_t* p=NULL;
-	uint8_t d;
-	do{
-		p=n;
-		if (v==n->v){
-			return n;
-		}
-		d=(v<n->v?0:1);
-		n=n->c[d];
-	} while (n);
-	n=malloc(sizeof(rb_node_t));
-	ASSERT((((uint64_t)n)&0xfffffffffffffffe)==((uint64_t)n));
-	n->p=((uint64_t)p&0xfffffffffffffffe)|COLOR_RED;
-	n->c[0]=NULL;
-	n->c[1]=NULL;
-	n->v=v;
-	p->c[d]=n;
-	rb_node_t* o=n;
-	do{
-		if (RB_NODE_GET_COLOR(p)==COLOR_BLACK){
-			break;
-		}
-		rb_node_t* g=RB_NODE_GET_PARENT(p);
-		if (!g){
-			RB_NODE_SET_COLOR(p,COLOR_BLACK);
-			break;
-		}
-		d=(g->c[0]==p?0:1);
-		rb_node_t* u=g->c[1-d];
-		if (!u||RB_NODE_GET_COLOR(u)==COLOR_BLACK){
-			if (n==p->c[1-d]){
-				_rotate(t,p,d);
-				n=p;
-				p=g->c[d];
+	rb_node_t* o=malloc(sizeof(rb_node_t));
+	o->p=y;
+	o->l=((uint64_t)nil)|COLOR_RED;
+	o->r=nil;
+	o->v=v;
+	if (!y){
+		t->r=o;
+		RB_NODE_SET_COLOR(o,COLOR_BLACK);
+		return o;
+	}
+	if (o->v<y->v){
+		RB_NODE_SET_LEFT(y,o);
+	}
+	else{
+		y->r=o;
+	}
+	if (o->p->p){
+		rb_node_t* n=o;
+		while (RB_NODE_GET_COLOR(n->p)==COLOR_RED){
+			if (n->p==n->p->p->r){
+				rb_node_t* u=RB_NODE_GET_LEFT(n->p->p);
+				if (RB_NODE_GET_COLOR(u)==COLOR_BLACK){
+					if (n==RB_NODE_GET_LEFT(n->p)){
+						n=n->p;
+						rb_node_t* x=RB_NODE_GET_LEFT(n);
+						RB_NODE_SET_LEFT(n,x->r);
+						x->p=n->p;
+						if (x->r!=nil){
+							x->r->p=n;
+						}
+						if (!n->p){
+							t->r=x;
+						}
+						else if (n==n->p->r){
+							n->p->r=x;
+						}
+						else{
+							RB_NODE_SET_LEFT(n->p,x);
+						}
+						n->p=x;
+						x->r=n;
+					}
+					RB_NODE_SET_COLOR(n->p,COLOR_BLACK);
+					x=n->p->p;
+					RB_NODE_SET_COLOR(x,COLOR_RED);
+					rb_node_t* y=x->r;
+					x->r=RB_NODE_GET_LEFT(y);
+					y->p=x->p;
+					if (RB_NODE_GET_LEFT(y)!=nil){
+						RB_NODE_GET_LEFT(y)->p=x;
+					}
+					if (!x->p){
+						t->r=y;
+					}
+					else if (x==RB_NODE_GET_LEFT(x->p)){
+						RB_NODE_SET_LEFT(x->p,y);
+					}
+					else{
+						x->p->r=y;
+					}
+					x->p=y;
+					RB_NODE_SET_LEFT(y,x);
+				}
+				else{
+					RB_NODE_SET_COLOR(u,COLOR_BLACK);
+					RB_NODE_SET_COLOR(n->p,COLOR_BLACK);
+					n=n->p->p;
+					RB_NODE_SET_COLOR(n,COLOR_RED);
+				}
 			}
-			_rotate(t,g,1-d);
-			RB_NODE_SET_COLOR(p,COLOR_BLACK);
-			RB_NODE_SET_COLOR(g,COLOR_RED);
-			break;
+			else{
+				rb_node_t* u=n->p->p->r;
+				if (RB_NODE_GET_COLOR(u)==COLOR_BLACK){
+					if (n==n->p->r){
+						n=n->p;
+						rb_node_t* x=n->r;
+						n->r=RB_NODE_GET_LEFT(x);
+						x->p=n->p;
+						if (RB_NODE_GET_LEFT(x)!=nil){
+							RB_NODE_GET_LEFT(x)->p=n;
+						}
+						if (!n->p){
+							t->r=x;
+						}
+						else if (n==RB_NODE_GET_LEFT(n->p)){
+							RB_NODE_SET_LEFT(n->p,x);
+						}
+						else{
+							n->p->r=x;
+						}
+						n->p=x;
+						RB_NODE_SET_LEFT(x,n);
+					}
+					RB_NODE_SET_COLOR(n->p,COLOR_BLACK);
+					x=n->p->p;
+					RB_NODE_SET_COLOR(x,COLOR_RED);
+					rb_node_t* y=RB_NODE_GET_LEFT(x);
+					RB_NODE_SET_LEFT(x,y->r);
+					y->p=x->p;
+					if (y->r!=nil){
+						y->r->p=x;
+					}
+					if (!x->p){
+						t->r=y;
+					}
+					else if (x==x->p->r){
+						x->p->r=y;
+					}
+					else{
+						RB_NODE_SET_LEFT(x->p,y);
+					}
+					x->p=y;
+					y->r=x;
+				}
+				else{
+					RB_NODE_SET_COLOR(u,COLOR_BLACK);
+					RB_NODE_SET_COLOR(n->p,COLOR_BLACK);
+					n=n->p->p;
+					RB_NODE_SET_COLOR(n,COLOR_RED);
+				}
+			}
+			if (n==t->r){
+				break;
+			}
 		}
-		RB_NODE_SET_COLOR(p,COLOR_BLACK);
-		RB_NODE_SET_COLOR(u,COLOR_BLACK);
-		RB_NODE_SET_COLOR(g,COLOR_RED);
-		n=g;
-		p=RB_NODE_GET_PARENT(n);
-	} while (p);
+		RB_NODE_SET_COLOR(t->r,COLOR_BLACK);
+	}
 	return o;
 }
 
 
 
 void rb_delete_node(rb_tree_t* t,rb_node_t* n){
-	rb_node_t* a;
+	rb_node_t* nil=&(t->_n);
 	uint8_t cl=RB_NODE_GET_COLOR(n);
-	if (!n->c[0]){
-		a=n->c[1];
-		rb_node_t* p=RB_NODE_GET_PARENT(n);
-		if (!p){
-			t->r=a;
+	rb_node_t* x=NULL;
+	if (RB_NODE_GET_LEFT(n)==nil){
+		if (!n->p){
+			t->r=n->r;
 		}
-		else if (n==p->c[0]){
-			p->c[0]=a;
+		else if (n==RB_NODE_GET_LEFT(n->p)){
+			RB_NODE_SET_LEFT(n->p,n->r);
 		}
 		else{
-			p->c[1]=a;
+			n->p->r=n->r;
 		}
-		if (a){
-			RB_NODE_SET_PARENT(a,p);
-		}
+		n->r->p=n->p;
+		x=n->r;
 	}
-	else if (!n->c[1]){
-		a=n->c[0];
-		rb_node_t* p=RB_NODE_GET_PARENT(n);
-		if (!p){
-			t->r=a;
+	else if (n->r==nil){
+		if (!n->p){
+			t->r=RB_NODE_GET_LEFT(n);
 		}
-		else if (n==p->c[0]){
-			p->c[0]=a;
+		else if (n==RB_NODE_GET_LEFT(n->p)){
+			RB_NODE_SET_LEFT(n->p,RB_NODE_GET_LEFT(n));
 		}
 		else{
-			p->c[1]=a;
+			n->p->r=RB_NODE_GET_LEFT(n);
 		}
-		RB_NODE_SET_PARENT(a,p);
+		RB_NODE_GET_LEFT(n)->p=n->p;
+		x=RB_NODE_GET_LEFT(n);
 	}
 	else{
-		rb_node_t* b=n->c[1];
-		while (b->c[0]){
-			b=b->c[0];
+		rb_node_t* y=n->r;
+		while (RB_NODE_GET_LEFT(y)!=nil){
+			y=RB_NODE_GET_LEFT(y);
 		}
-		a=b->c[1];
-		cl=RB_NODE_GET_COLOR(b);
-		if (RB_NODE_GET_PARENT(b)==n){
-			RB_NODE_SET_PARENT(a,n);
+		cl=RB_NODE_GET_COLOR(y);
+		x=y->r;
+		if (y->p==n){
+			x->p=y;
 		}
 		else{
-			rb_node_t* p=RB_NODE_GET_PARENT(b);
-			if (!p){
-				t->r=a;
+			if (!y->p){
+				t->r=y->r;
 			}
-			else if (b==p->c[0]){
-				p->c[0]=a;
+			else if (y==RB_NODE_GET_LEFT(y->p)){
+				RB_NODE_SET_LEFT(y->p,y->r);
 			}
 			else{
-				p->c[1]=a;
+				y->p->r=y->r;
 			}
-			if (a){
-				RB_NODE_SET_PARENT(a,p);
-			}
-			b->c[1]=n->c[1];
-			RB_NODE_SET_PARENT(b->c[1],b);
+			y->r->p=y->p;
+			y->r=n->r;
+			y->r->p=y;
 		}
-		rb_node_t* p=RB_NODE_GET_PARENT(n);
-		if (!p){
-			t->r=b;
+		if (!n->p){
+			t->r=y;
 		}
-		else if (n==p->c[0]){
-			p->c[0]=b;
+		else if (n==RB_NODE_GET_LEFT(n->p)){
+			RB_NODE_SET_LEFT(n->p,y);
 		}
 		else{
-			p->c[1]=b;
+			n->p->r=y;
 		}
-		RB_NODE_SET_PARENT(b,p);
-		b->c[0]=n->c[0];
-		RB_NODE_SET_PARENT(b->c[0],b);
-		RB_NODE_SET_COLOR(b,RB_NODE_GET_COLOR(n));
+		y->p=n->p;
+		RB_NODE_SET_LEFT(y,RB_NODE_GET_LEFT(n));
+		RB_NODE_GET_LEFT(y)->p=y;
+		RB_NODE_SET_COLOR(y,RB_NODE_GET_COLOR(n));
 	}
-	if (cl==COLOR_RED||RB_NODE_GET_COLOR(a)==COLOR_RED){
+	if (cl==COLOR_RED){
 		return;
 	}
-	do{
-		rb_node_t* p=RB_NODE_GET_PARENT(a);
-		if (a==p->c[0]){
-			rb_node_t* s=p->c[1];
-			if (RB_NODE_GET_COLOR(s)==COLOR_RED){
-				RB_NODE_SET_COLOR(s,COLOR_BLACK);
-				RB_NODE_SET_COLOR(p,COLOR_RED);
-				_rotate(t,p,0);
-				s=p->c[1];
+	while (x!=t->r&&RB_NODE_GET_COLOR(x)==COLOR_BLACK){
+		if (x==RB_NODE_GET_LEFT(x->p)){
+			rb_node_t*y=x->p->r;
+			if (RB_NODE_GET_COLOR(y)==COLOR_RED){
+				RB_NODE_SET_COLOR(y,COLOR_BLACK);
+				rb_node_t* z=x->p;
+				RB_NODE_SET_COLOR(z,COLOR_RED);
+				y=z->r;
+				z->r=RB_NODE_GET_LEFT(y);
+				y->p=z->p;
+				if (RB_NODE_GET_LEFT(y)!=nil){
+					RB_NODE_GET_LEFT(y)->p=z;
+				}
+				if (!z->p){
+					t->r=y;
+				}
+				else if (z==RB_NODE_GET_LEFT(z->p)){
+					RB_NODE_SET_LEFT(z->p,y);
+				}
+				else{
+					z->p->r=y;
+				}
+				z->p=y;
+				RB_NODE_SET_LEFT(y,z);
 			}
-			if (RB_NODE_GET_COLOR(s->c[0])==COLOR_BLACK&&RB_NODE_GET_COLOR(s->c[1])==COLOR_BLACK){
-				RB_NODE_SET_COLOR(s,COLOR_RED);
-				a=p;
+			if (RB_NODE_GET_COLOR(RB_NODE_GET_LEFT(y))==COLOR_BLACK&&RB_NODE_GET_COLOR(y->r)==COLOR_BLACK){
+				RB_NODE_SET_COLOR(y,COLOR_RED);
+				x=x->p;
 			}
 			else{
-				if (RB_NODE_GET_COLOR(s->c[1])==COLOR_BLACK){
-					RB_NODE_SET_COLOR(s->c[0],COLOR_BLACK);
-					RB_NODE_SET_COLOR(s,COLOR_RED);
-					_rotate(t,s,1);
-					s=p->c[1];
+				if (RB_NODE_GET_COLOR(y->r)==COLOR_BLACK){
+					RB_NODE_SET_COLOR(RB_NODE_GET_LEFT(y),COLOR_BLACK);
+					RB_NODE_SET_COLOR(y,COLOR_RED);
+					rb_node_t* z=RB_NODE_GET_LEFT(y);
+					RB_NODE_SET_LEFT(y,z->r);
+					z->p=y->p;
+					if (z->r!=nil){
+						z->r->p=y;
+					}
+					if (!y->p){
+						t->r=z;
+					}
+					else if (y==y->p->r){
+						y->p->r=z;
+					}
+					else{
+						RB_NODE_SET_LEFT(y->p,z);
+					}
+					y->p=z;
+					z->r=y;
+					y=x->p->r;
 				}
-				RB_NODE_SET_COLOR(s,RB_NODE_GET_COLOR(p));
-				RB_NODE_SET_COLOR(p,COLOR_BLACK);
-				RB_NODE_SET_COLOR(s->c[1],COLOR_BLACK);
-				_rotate(t,p,0);
-				break;
+				RB_NODE_SET_COLOR(y,RB_NODE_GET_COLOR(x->p));
+				RB_NODE_SET_COLOR(x->p,COLOR_BLACK);
+				RB_NODE_SET_COLOR(y->r,COLOR_BLACK);
+				rb_node_t* z=x->p;
+				x=t->r;
+				rb_node_t* w=z->r;
+				z->r=RB_NODE_GET_LEFT(w);
+				w->p=z->p;
+				if (RB_NODE_GET_LEFT(w)!=nil){
+					RB_NODE_GET_LEFT(w)->p=z;
+				}
+				if (!z->p){
+					t->r=w;
+				}
+				else if (z==RB_NODE_GET_LEFT(z->p)){
+					RB_NODE_SET_LEFT(z->p,w);
+				}
+				else{
+					z->p->r=w;
+				}
+				z->p=w;
+				RB_NODE_SET_LEFT(w,z);
 			}
 		}
 		else{
-			rb_node_t* s=p->c[0];
-			if (RB_NODE_GET_COLOR(s)==COLOR_RED){
-				RB_NODE_SET_COLOR(s,COLOR_BLACK);
-				RB_NODE_SET_COLOR(p,COLOR_RED);
-				_rotate(t,p,1);
-				s=p->c[0];
+			rb_node_t* y=RB_NODE_GET_LEFT(x->p);
+			if (RB_NODE_GET_COLOR(y)==COLOR_RED){
+				RB_NODE_SET_COLOR(y,COLOR_BLACK);
+				rb_node_t* z=x->p;
+				RB_NODE_SET_COLOR(z,COLOR_RED);
+				y=RB_NODE_GET_LEFT(z);
+				RB_NODE_SET_LEFT(z,y->r);
+				y->p=z->p;
+				if (y->r!=nil){
+					y->r->p=z;
+				}
+				if (!z->p){
+					t->r=y;
+				}
+				else if (z==z->p->r){
+					z->p->r=y;
+				}
+				else{
+					RB_NODE_SET_LEFT(z->p,y);
+				}
+				z->p=y;
+				y->r=z;
 			}
-			if (RB_NODE_GET_COLOR(s->c[0])==COLOR_BLACK&&RB_NODE_GET_COLOR(s->c[1])==COLOR_BLACK){
-				RB_NODE_SET_COLOR(s,COLOR_RED);
-				a=p;
+			if (RB_NODE_GET_COLOR(RB_NODE_GET_LEFT(y))==COLOR_BLACK&&RB_NODE_GET_COLOR(y->r)==COLOR_BLACK){
+				RB_NODE_SET_COLOR(y,COLOR_RED);
+				x=x->p;
 			}
 			else{
-				if (RB_NODE_GET_COLOR(s->c[0])==COLOR_BLACK){
-					RB_NODE_SET_COLOR(s->c[1],COLOR_BLACK);
-					RB_NODE_SET_COLOR(s,COLOR_RED);
-					_rotate(t,s,0);
-					s=p->c[0];
+				if (RB_NODE_GET_COLOR(RB_NODE_GET_LEFT(y))==COLOR_BLACK){
+					RB_NODE_SET_COLOR(y->r,COLOR_BLACK);
+					RB_NODE_SET_COLOR(y,COLOR_RED);
+					rb_node_t* z=y->r;
+					y->r=RB_NODE_GET_LEFT(z);
+					z->p=y->p;
+					if (RB_NODE_GET_LEFT(z)!=nil){
+						RB_NODE_GET_LEFT(z)->p=y;
+					}
+					if (!y->p){
+						t->r=z;
+					}
+					else if (y==RB_NODE_GET_LEFT(y->p)){
+						RB_NODE_SET_LEFT(y->p,z);
+					}
+					else{
+						y->p->r=z;
+					}
+					y->p=z;
+					RB_NODE_SET_LEFT(z,y);
+					y=RB_NODE_GET_LEFT(x->p);
 				}
-				RB_NODE_SET_COLOR(s,RB_NODE_GET_COLOR(p));
-				RB_NODE_SET_COLOR(p,COLOR_BLACK);
-				RB_NODE_SET_COLOR(s->c[0],COLOR_BLACK);
-				_rotate(t,p,1);
-				break;
+				RB_NODE_SET_COLOR(y,RB_NODE_GET_COLOR(x->p));
+				RB_NODE_SET_COLOR(x->p,COLOR_BLACK);
+				RB_NODE_SET_COLOR(RB_NODE_GET_LEFT(y),COLOR_BLACK);
+				rb_node_t* z=x->p;
+				x=t->r;
+				rb_node_t* w=RB_NODE_GET_LEFT(z);
+				RB_NODE_SET_LEFT(z,w->r);
+				w->p=z->p;
+				if (w->r!=nil){
+					w->r->p=z;
+				}
+				if (!z->p){
+					t->r=w;
+				}
+				else if (z==z->p->r){
+					z->p->r=w;
+				}
+				else{
+					RB_NODE_SET_LEFT(z->p,w);
+				}
+				z->p=w;
+				w->r=z;
 			}
 		}
-	} while (a!=t->r&&RB_NODE_GET_COLOR(a)==COLOR_BLACK);
-	RB_NODE_SET_COLOR(a,COLOR_BLACK);
+	}
+	RB_NODE_SET_COLOR(x,COLOR_BLACK);
 }
 
 
 
 void rb_print_tree(rb_tree_t* t){
 	if (t->r){
-		_print_node(t->r,0);
+		_print_node(t->r,&(t->_n),0);
 	}
 }
 
@@ -286,7 +446,7 @@ void rb_print_tree(rb_tree_t* t){
 
 void rb_free_tree(rb_tree_t* t){
 	if (t->r){
-		_free_node(t->r);
-		t->r=NULL;
+		_free_node(t->r,&(t->_n));
+		t->r=&(t->_n);
 	}
 }
