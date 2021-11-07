@@ -22,6 +22,7 @@
 
 static void _print_node(rb_node_t* n,rb_node_t* e,uint16_t i){
 	if (RB_NODE_GET_LEFT(n)!=e){
+		ASSERT(RB_NODE_GET_LEFT(n)->p==n);
 		_print_node(RB_NODE_GET_LEFT(n),e,i+2);
 	}
 	for (uint16_t j=0;j<i;j++){
@@ -29,6 +30,7 @@ static void _print_node(rb_node_t* n,rb_node_t* e,uint16_t i){
 	}
 	printf("%c: %"PRIu64"\n",(RB_NODE_GET_COLOR(n)==COLOR_RED?'R':'B'),n->v);
 	if (n->r!=e){
+		ASSERT(n->r->p==n);
 		_print_node(n->r,e,i+2);
 	}
 }
